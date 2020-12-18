@@ -6,7 +6,6 @@ import IProductsRepository from '@modules/products/repositories/IProductsReposit
 import ICustomersRepository from '@modules/customers/repositories/ICustomersRepository';
 import Order from '../infra/typeorm/entities/Order';
 import IOrdersRepository from '../repositories/IOrdersRepository';
-import ICreateOrderDTO from '../dtos/ICreateOrderDTO';
 
 interface IProduct {
   id: string;
@@ -32,92 +31,66 @@ class CreateOrderService {
   ) {}
 
   public async execute({ customer_id, products }: IRequest): Promise<Order> {
-    const findProducts = products.map(product => {
-      return {
-        id: product.id,
-      };
-    });
+    const customerExists = await this.customersRepository.findById(customer_id);
 
-    const productsList = await this.productsRepository.findAllById(
-      findProducts,
-    );
-
-    console.log('produto', productsList);
-
-    const productsToCreate = products.map(product => {
-      return {
-        product_id: product.id,
-        price: productsList.filter(p => (p.id === product.id ? p.price : null)),
-        quantity: product.quantity,
-      };
-    });
-
-    const customer = await this.customersRepository.findById(customer_id);
-
-    const resultProduct: ICreateOrderDTO = {
-      customer,
-      products: productsToCreate,
-    };
-
-    if (customer && products) {
-      await this.ordersRepository.create({
-        customer,
-        products: productsToCreate,
-      });
+    if (!customerExists) {
+      throw new AppError('Could not find any customer with the given id');
     }
 
-    // customer: Customer;
-    // products: IProduct[
-    //   {
-    //     product_id: string;
-    //     price: number;
-    //     quantity: number;
-    //   },
-    //   {
-    //     product_id: string;
-    //     price: number;
-    //     quantity: number;
-    //   },
-    // ];
+    const existentProducts = await this.productsRepository.findAllById(
+      products,
+    );
 
-    // const newProduct = products.map(product => {
-    //   return {
-    //     product.id,
-    //     price
-    //   }
-    // })
+    if (!existentProducts.length) {
+      throw new AppError('Could not find any products with the given ids');
+    }
 
-    // const newProduct = products.map(product => {
-    //   const price = await this.productsRepository.findAllById([product.id])
+    const existentProductsIds = existentProducts.map(product => product.id); // [1, 2, 3, 4]
 
-    //   return {
-    //     product.id,
-    //     price,
-    //     product.quantity,
-    //   }
-    // })
+    // vai retornar os que nao existem
+    const checkInexistentProducts = products.filter(
+      product => !existentProductsIds.includes(product.id),
+    );
 
-    //   product_id: string;
-    // price: number;
-    // quantity: number;
+    if (checkInexistentProducts) {
+      throw new AppError(
+        `Could not find product ${checkInexistentProducts[0].id}`,
+      );
+    }
 
-    // const order = await this.ordersRepository.create({
-    //   customer: customer_id,
-    //   products,
-    // });
+    const findProductsWithNoQuantityAvailable = products.filter(
+      product =>
+        existentProducts.filter(p => p.id === product.id)[0].quantity <
+        product.quantity,
+    );
 
-    // const customerExist = await this.customersRepository.findByEmail(email);
+    if (findProductsWithNoQuantityAvailable.length) {
+      throw new AppError(
+        `The quantity ${findProductsWithNoQuantityAvailable[0].quantity} is not available for ${findProductsWithNoQuantityAvailable[0].id}`,
+      );
+    }
 
-    // if (customerExist) {
-    //   throw new AppError('The customer already exists.');
-    // }
+    const serializedProducts = products.map(product => ({
+      product_id: product.id,
+      quantity: product.quantity,
+      price: existentProducts.filter(p => p.id === product.id)[0].price,
+    }));
 
-    // const customer = await this.customersRepository.create({
-    //   name,
-    //   email,
-    // });
+    const order = await this.ordersRepository.create({
+      customer: customerExists,
+      products: serializedProducts,
+    });
 
-    // return customer;
+    const productsQuantity = order.order_products.map(product => ({
+      id: product.product_id,
+      quantity:
+        existentProducts.filter(p => p.id === product.product_id)[0].quantity -
+        product.quantity,
+    }));
+
+    await this.productsRepository.updateQuantity(productsQuantity);
+
+    return order;
   }
 }
 
