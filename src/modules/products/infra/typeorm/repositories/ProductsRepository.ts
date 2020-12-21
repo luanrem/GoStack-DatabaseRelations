@@ -21,7 +21,7 @@ class ProductsRepository implements IProductsRepository {
     price,
     quantity,
   }: ICreateProductDTO): Promise<Product> {
-    const product = this.ormRepository.create({
+    const product = await this.ormRepository.create({
       name,
       price,
       quantity,
@@ -52,15 +52,13 @@ class ProductsRepository implements IProductsRepository {
     });
 
     return existentProducts;
-
-    // const productFound = await this.ormRepository.findByIds(products);
-
-    // return productFound;
   }
 
   public async updateQuantity(
     products: IUpdateProductsQuantityDTO[],
   ): Promise<Product[]> {
+    // return this.ormRepository.save(products);
+
     await Promise.all(
       products.map(async product => {
         return this.ormRepository.update(

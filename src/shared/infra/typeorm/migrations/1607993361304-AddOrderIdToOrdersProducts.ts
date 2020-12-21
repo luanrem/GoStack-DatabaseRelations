@@ -9,7 +9,7 @@ export default class AddOrderIdToOrdersProducts1607993361304
   implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.addColumn(
-      'order_products',
+      'orders_products',
       new TableColumn({
         name: 'order_id',
         type: 'uuid',
@@ -18,7 +18,7 @@ export default class AddOrderIdToOrdersProducts1607993361304
     );
 
     await queryRunner.createForeignKey(
-      'order_products',
+      'orders_products',
       new TableForeignKey({
         name: 'OrdersProductsOrder',
         columnNames: ['order_id'],

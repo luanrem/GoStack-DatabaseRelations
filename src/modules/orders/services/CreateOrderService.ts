@@ -22,10 +22,8 @@ class CreateOrderService {
   constructor(
     @inject('OrdersRepository')
     private ordersRepository: IOrdersRepository,
-
     @inject('ProductsRepository')
     private productsRepository: IProductsRepository,
-
     @inject('CustomersRepository')
     private customersRepository: ICustomersRepository,
   ) {}
@@ -52,7 +50,7 @@ class CreateOrderService {
       product => !existentProductsIds.includes(product.id),
     );
 
-    if (checkInexistentProducts) {
+    if (checkInexistentProducts.length) {
       throw new AppError(
         `Could not find product ${checkInexistentProducts[0].id}`,
       );
@@ -80,6 +78,15 @@ class CreateOrderService {
       customer: customerExists,
       products: serializedProducts,
     });
+
+    // const { order_products } = order;
+
+    // const orderedProductsQuantity = order_products.map(product => ({
+    //   id: product.product_id,
+    //   quantity:
+    //     existentProducts.filter(p => p.id === product.product_id)[0].quantity -
+    //     product.quantity,
+    // }));
 
     const productsQuantity = order.order_products.map(product => ({
       id: product.product_id,
